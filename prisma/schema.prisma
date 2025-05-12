@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TestTable {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  phoneNumber  String
+  tenantId     String
+  fullName     String?
+  role         UserRole @default(USER)
+  isIncomplete Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  RefreshToken    RefreshToken[]
+  bookings        Booking[]
+  waitingList     WaitingList[]
+  userMemberships UserMembership[]
+  orders          Order[]
+
+  @@unique([phoneNumber, tenantId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  deviceId  String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId], name: "userId_deviceId")
+}
+
+model Instructor {
+  id        String
+  fullName  String
+  imageUrl  String?
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  courses  InstructorCourse[]
+  sessions Session[]
+
+  @@id([id, tenantId])
+  @@index([tenantId])
+}
+
+model CourseType {
+  id        Int      @id @default(autoincrement())
+  title     String
+  imageUrl  String
+  order     Int
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  instructors          InstructorCourse[]
+  sessions             Session[]
+  membershipComponents MembershipComponent[]
+  userMembershipUsages UserMembershipUsage[]
+
+  @@unique([title, tenantId])
+  @@index([tenantId])
+}
+
+model InstructorCourse {
+  instructorId String
+  courseTypeId Int
+  tenantId     String
+
+  assignedAt DateTime @default(now())
+
+  instructor Instructor @relation(fields: [instructorId, tenantId], references: [id, tenantId])
+  courseType CourseType @relation(fields: [courseTypeId], references: [id])
+
+  @@id([instructorId, tenantId, courseTypeId])
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  courseTypeId Int
+  instructorId String
+  tenantId     String
+  dateTime     DateTime
+  duration     Int // in minutes
+  totalSeats   Int
+  takenSeats   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  courseType  CourseType    @relation(fields: [courseTypeId], references: [id])
+  instructor  Instructor    @relation(fields: [instructorId, tenantId], references: [id, tenantId])
+  bookings    Booking[]
+  waitingList WaitingList[]
+
+  @@index([tenantId])
+  @@index([courseTypeId])
+  @@index([instructorId])
+}
+
+model Booking {
+  id                    String   @id @default(uuid())
+  userId                String
+  sessionId             Int
+  userMembershipUsageId String?
+  createdAt             DateTime @default(now())
+  cancelled             Boolean  @default(false)
+
+  user    User    @relation(fields: [userId], references: [id])
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@unique([userId, sessionId])
+}
+
+model WaitingList {
+  id        String   @id @default(uuid())
+  userId    String
+  sessionId Int
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@unique([userId, sessionId])
+}
+
+model Membership {
+  id        String   @id @default(uuid())
+  title     String
+  price     Int
+  enabled   Boolean  @default(true)
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  components      MembershipComponent[]
+  userMemberships UserMembership[]
+  orders          Order[]
+
+  @@index([tenantId])
+}
+
+model MembershipComponent {
+  id           String @id @default(uuid())
+  membershipId String
+  courseTypeId Int
+  count        Int
+
+  membership Membership @relation(fields: [membershipId], references: [id])
+  courseType CourseType @relation(fields: [courseTypeId], references: [id])
+
+  @@unique([membershipId, courseTypeId])
+}
+
+model UserMembership {
+  id           Int      @id @default(autoincrement())
+  userId       String
+  membershipId String
+  assignedAt   DateTime @default(now())
+
+  user       User                  @relation(fields: [userId], references: [id])
+  membership Membership            @relation(fields: [membershipId], references: [id])
+  order      Order?
+  usages     UserMembershipUsage[]
+}
+
+model UserMembershipUsage {
+  id               String @id @default(uuid())
+  userMembershipId Int
+  courseTypeId     Int
+  usedCount        Int    @default(0)
+  allowedCount     Int
+
+  userMembership UserMembership @relation(fields: [userMembershipId], references: [id])
+  courseType     CourseType     @relation(fields: [courseTypeId], references: [id])
+
+  @@unique([userMembershipId, courseTypeId])
+}
+
+model Order {
+  id               Int      @id @default(autoincrement())
+  userId           String
+  membershipId     String
+  paymentMethodId  String
+  status           String
+  createdAt        DateTime @default(now())
+  userMembershipId Int?     @unique
+
+  user           User            @relation(fields: [userId], references: [id])
+  membership     Membership      @relation(fields: [membershipId], references: [id])
+  userMembership UserMembership? @relation(fields: [userMembershipId], references: [id])
+  paymentMethod  PaymentOption   @relation(fields: [paymentMethodId], references: [id])
+
+  @@index([userId])
+  @@index([membershipId])
+}
+
+model PaymentOption {
+  id    String  @id @default(uuid())
+  name  String  @unique
+
+  orders Order[]
+}
