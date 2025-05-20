@@ -12,11 +12,12 @@ export interface INotification {
 
 export class NotificationFactory {
   public static create(): INotification {
-    const provider = process.env.NOTIFICATION_PROVIDER || NotificationType.LOGGER;
+    const provider = process.env.NOTIFICATION_PROVIDER || NotificationType.AWS_SNS;
 
     switch (provider?.toUpperCase()) {
       case NotificationType.AWS_SNS:
         return AwsSnsNotification.getInstance();
+        
       case NotificationType.LOGGER:
         return new LoggerNotification();
       default:

@@ -52,6 +52,8 @@ export const sendOtpController = async (req: AuthRequest, res: Response): Promis
 
   try {
     await authService.sendOTP(phoneNumber, tenantId, deviceId);
+    console.log('Sending OTP via SNS:', phoneNumber);
+
     res.json({ message: 'OTP sent successfully.' });
   } catch (error) {
     console.error(`❌ Failed to send OTP:`, error);
